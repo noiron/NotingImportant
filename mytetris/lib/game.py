@@ -1,7 +1,7 @@
 import pygame
 from pygame.locals import *
 from menu import Menu
-from main import Main
+from main import Main 
 import sound, util
 
 class Game:
@@ -11,19 +11,18 @@ class Game:
         # init pygame
         pygame.mixer.pre_init(44100, 16, 2, 1024*4)
         pygame.init()
-        pygame.display.set_caption("FUNNY TETRIS")
+        pygame.display.set_caption("Funny Tetris")
         self.init()
         try:
-            self.screen = pygame.display.set_mode((640, 480), 
+            self.screen = pygame.display.set_mode((640, 480),
                     HWSURFACE | SRCALPHA, 32)
         except:
-            self.screen = pygame.display.set_mode((640, 480), 
+            self.screen = pygame.display.set_mode((640, 480),
                     SRCALPHA, 32)
         try:
             pygame.display.set_icon(pygame.image.load(
-                util.file_path("icon.png")).convert_alpha())
+                util.file_path('icon.png')).convert_alpha())
         except:
-            # some platfom do not allow change icon after shown
             pass
         # init sub modules
         self.menu = Menu(self.screen)   # menu show start menu
@@ -52,8 +51,10 @@ class Game:
         pygame.quit()
 
 def run():
-    tetris = Game()
+    tetris = Game
     tetris.loop()
 
 if __name__ == '__main__':
     print "Please run me with 'run_game.py'!"
+
+
