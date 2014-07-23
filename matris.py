@@ -89,7 +89,7 @@ class Matris(object):
         self.score += 10 * amount
         
 
-     def update(self, timepassed):
+    def update(self, timepassed):
         pressed = lambda key: event.type == pygame.KEYDOWN and event.key == key
         unpressed = lambda key: event.type == pygame.KEYUP and event.key == key
 
@@ -179,7 +179,184 @@ class Matris(object):
 
         return self.blend(position = position, block = self.shadow_block, 
             shadow = True) or  self.matrix
+    
+    def fits_in_matrix(self, shape, position):
+        posY, posX = position
+        for x in range(posX, posX + len(shape)):
+            for y in range(posY, posY + len(shape)):
+                if self.matrix.get((y, x), False) is False and shape[y-posY][x-posX]:
+                    return False
+
+        return position
+
+
+    def request_rotation(self):
+        rotation = (self.tetromino_rotation + 1) % 4
+        shape = self.rotated(rotation)
+
+        y, x = self.tetromino_position
+
+        position = (self.fits_in_matrix(shape, (y, x)) or 
+                    self.fits_in_matrix(shape, (y, x+1)) or
+                    self.fits_in_matrix(shape, (y, x-1)) or
+                    self.fits_in_matrix(shape, (y, x+2)) or
+                    self.fits_in_matrix(shape, (y, x-2)))
+
+        if position and self.blend(shape, position):
+            self.tetromino_rotation = ratation
+            self.tetromino_position = position
+            return self.tetromino_rotation
+        else:
+            return False
+
+    def request_movement(self, direction):
+        posY, posX = self.tetromino_position
+        if direction == 'left' and self.blend(position=(posY, posX-1)):
+            self.tetromino_position = (posY, posX - 1)
+            return self.tetromino_position
+        elif direction == 'right' and self.blend(position=(posY, posX+1)):
+            self.tetromino_position = (posY, posX + 1)
+            return self.tetromino_position
+        elif direction == 'up' and self.blend(position=(posY - 1, posX)):
+            self.tetromino_position = (posY - 1, posX)
+            return self.tetromino_position
+        elif direction == 'down' and self.blend(position=(posY + 1, posX)):
+            self.tetromino_position = (posY + 1, posX)
+            return self.tetromino_position
+        else:
+            return False
+
+    def block(self, color, shadow = False):
+        colors = {'blue':   (27, 34, 224),
+                  'yellow': (225, 242, 41),
+                  'pink':   (242, 41, 195),
+                  'green':  (22, 181, 64),
+                  'red':    (204, 22, 22),
+                  'orange': (245, 144, 12),
+                  'cyan':   (10, 255, 226)}
+
+        if shadow:
+            end = [40]  # end is the alpha value
+        else:
+            end = []    # Adding this to the end will not change the array, thus no alpha value
+
+        border = Surface((self.blocksize, self.blocksize), pygame.SRCALPHA, 32)
+        border.fill(map(lambda c: c*0.5, colors[color]) + end)
+
+        borderwidth = 2
+
+        box = Surface((self.blocksize-borderwidth*2, self.blocksize-borderwidth*2),
+                        pygame.SRCALPHA, 32)
+        boxarr = pygame.PixelArray(box)
+        for x in range(len(boxarr)):
+            for y in range(len(boxarr)):
+                boxarr[x][y] = tuple(map(lambda c: min(255, int(c*random.uniform(0.8, 1.2))),
+                                    colors[color]) + end)
+
+        del boxarr # deleting boxarr or else the box surface will be 'locked' or something like that and won't blit
+        border.blit(box, Rect(borderwidth, borderwidth, 0, 0))
+
+        return border
+
+    def lock_tetromino(self):
+        self.matrix = self.blend()
+
+        lines_cleared = self.remove_lines()
+        self.lines += lines_cleared
+
+        if lines_cleared:
+            if lines_cleared >= 4:
+                self.linescleared_sound.play()
+            self.score += 100 * (lines_cleared**2) * self.combo
+
+            if not self.played_highscorebeaten_sound and self.score > self.highscore:
+                if self.hightscore != 0:
+                    self.hightscorebeaten_sound.play()
+                self.played_highscorebeaten_sound = True
+
+        if self.lines >= self.level * 10:
+            self.levelup_sound.play()
+            self.level += 1
+
+        self.combo = self.combo + 1 if lines_cleared else 1
+
+        self.set_tetrominoes()
+
+    def remove_lines(self):
+        lines = []
+        for y in range(self.size['height']):
+            line = (y, [])
+            for x in range(self.size['width']):
+                if self.matrix[(y,x)]:
+                    line[1].append(x)
+            if len(line[1]) == self.size['width']:
+                lines.append(y)
+
+        for line in sorted(lines):
+            for x in range(self.size['width']):
+                self.matrix[(line, x)] = None
+            for y in range(0, line+1)[::-1]:
+                for x in range(self.size['width']):
+                    self.matrix[(y,x)] = self.matrix.get((y-1,x), None)
+
+        return len(lines)
+
+    def blend(self, shape = None, position = None, matrix = None, block = None,
+        allow_failure = True, shadow = False):
+        if shape is None:
+            shape = self.rotated()
+        if position is None:
+            position = self.tetromino_position
+
+        copy = dict(self.matrix if matrix is None else matrix)
+        posY, posX = position
+        for x in range(posX, posX + len(shape)):
+            for y in range(posY, posY + len(shape)):
+                if (copy.get((y, x), False) is False and shape[y - posY][x - posX]  # shape is outside the matrix
+                    or  # coordinate is occupied by something else which isn't a shadow
+                    copy.get((y, x)) 
+                    and shape[y - posY][x - posX] 
+                    and copy[(y, x)][0] != 'shadow'):
+                    if allow_failure:
+                        return False
+                    else:
+                        raise BrokenMatrixException('''Tried to blend a broken 
+                            matrix. This should mean game over, if you see this 
+                            it is certainly a bug. (or you are developing)''')
+                elif shape[y-posY][x-posX] and not shadow:
+                    copy[(y, x)] = ('block', self.tetromino_block if block is None else block)
+                elif shape[y-posY][x-posX] and shadow:
+                    copy[(y, x)] = ('shadow', block)
+
+        return copy
+
+    def construct_surface_of_next_tetromino(self):
+        shape = self.next_tetromino.shape
+        surf = Surface((len(shape) * self.blocksize, len(shape) * self.blocksize),
+                        pygame.SRCALPHA, 32)
+
+        for y in range(len(shape)):
+            for x in range(len(shape)):
+                if shape[y][x]:
+                    surf.blit(self.block(self.next_tetromino.color),
+                                (x * self.blocksize, y * self.blocksize))
+        return surf
+
+class Game(object):
+    def main(self, screen):
+        clock = pygame.time.Clock()
+        background = Surface(screen.get_size())
+
+        background.blit(construct_nightmare(background.get_size()), (0, 0))
+
+        self.matris = Matris()
+        matris_border = Surface(MATRIX_WIDTH * BLOCKSIZE + BORDERWIDTH * 2,
+                                VISIBLE_MATRIX_HEIGHT * BLOCKSIZE + BORDERWIDTH * 2)
         
+
+
+
+
 
 
 
