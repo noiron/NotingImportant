@@ -352,7 +352,126 @@ class Game(object):
         self.matris = Matris()
         matris_border = Surface(MATRIX_WIDTH * BLOCKSIZE + BORDERWIDTH * 2,
                                 VISIBLE_MATRIX_HEIGHT * BLOCKSIZE + BORDERWIDTH * 2)
-        
+        matris_border.fill(BORDERCOLOR)
+
+        while 1:
+            dt = clock.tick(45)
+            self.matris.update((dt / 1000.) if not self.matris.paused else 0)
+            if self.matris.gameover:
+                return
+
+            tricky_centerx =  WIDTH - (WIDTH - (MATRIS_OFFSET + BLOCKSIZE *
+                            MATRIX_WIDTH + BORDERWIDTH * 2)) / 2
+
+            background.blit(matris_border, (MATRIS_OFFSET, MATRIS_OFFSET))
+            background.blit(self.matris.surface, (MATRIS_OFFSET + BORDERWIDTH, 
+                            MATRIS_OFFSET + BORDERWIDTH))
+
+            nextts = self.next_tetromino_surf(self.matris.surface_of_next_tetromino)
+            background.blit(nextts, nextts.get_rect(top = MATRIS_OFFSET, 
+                                centerx = tricky_centerx))
+
+            infos = self.info_surf()
+            background.blit(infos, infos.get_rect(bottom = HEIGHT - MATRIS_OFFSET,
+                                centerx = tricky_centerx))
+
+            screen.blit(background, (0, 0))
+            pygame.display.flip()
+
+    def info_surf(self):
+        textcolor = (255, 255, 255)
+        font = pygame.font.Font(None, 30)
+        width = (WIDTH - (MATRIS_OFFSET + BLOCKSIZE * MATRIX_WIDTH + 
+            BORDERWIDTH * 2)) - MARTRIS_OFFSET * 2
+
+        def renderpair(text, val):
+            text = font.render(text, True, textcolor)
+            val = font.render(str(val), True, textcolor)
+
+            surf = Surface((width, text.get_rect().height + BORDERWIDTH * 2),
+                                pygame.SRCALPHA, 32)
+
+            surf.blit(text, text.get_rect(top = BORDERWIDTH + 10, 
+                        left = BORDERWIDTH + 10))
+            surf.blit(val, val.get_rect(top = BORDERWIDTH + 10, 
+                        right = width - (BORDERWIDTH + 10)))
+            return surf 
+
+        scoresurf = renderpair("Score", self.matris.score)
+        levelsurf = renderpair("Level", self.matris.level)
+        linessurf = renderpair("Lines", self.matris.lines)
+        combosurf = renderpair("Combo", "x{}".format(self.matris.combo))
+
+        height = 20 + (levelsurf.get_rect().height +
+                        scoresurf.get_rect().height +
+                        linessurf.get_rect().height +
+                        combosurf.get_rect().height)
+
+        area = Surface((width, height))
+        area.fill(BORDERCOLOR)
+        area.fill(BGCOLOR, Rect(BORDERWIDTH, BORDERWIDTH, width - BORDERWIDTH * 2,
+                    height - BORDERWIDTH * 2))
+
+        area.blit(levelsurf, (0, 0))
+        area.blit(scoresurf, (0, levelsurf.get_rect().height))
+        area.blit(linessurf, (0, levelsurf.get_rect().height + 
+                                scoresurf.get_rect().height))
+        area.blit(combosurf, (0, levelsurf.get_rect().height + 
+                                scoresurf.get_rect().height + 
+                                linessurf.get_rect().height))
+
+        return area
+
+    def next_tetromino_surf(self, next_tetromino_surf):
+        area = Surface((BLOCKSIZE * 5, BLOCKSIZE * 5))
+        area.fill(BORDERCOLOR)
+        area.fill(BGCOLOR, Rect(BORDERWIDTH, BORDERWIDTH, 
+                        BLOCKSIZE*5-BORDERWIDTH*2, BLOCKSIZE*5-BORDERWIDTH*2))
+
+        areasize = area.get_size()[0]
+        tetromino_surf_size = tetromino_surf.get_size()[0]
+
+        center = areasize / 2 - tetromino_surf_size / 2 
+        area.blit(tetromino_surf, (center, center))
+
+        return area
+
+class Menu(object):
+    running = True
+    def main(self, screen):
+        clock = pygame.time.Clock()
+        menu = kezmenu.KezMenu(
+            ['Play!', lambda: Game().main(screen)],
+            ['Quit', lambda: setattr(self, 'running', False)],
+        )
+        menu.position = (50, 50)
+        menu.enableEffect('enlarge-font-on-focus', font = None, size = 60, 
+                            enlarge_factor = 1.2, enlarge_time = 0.3)
+        menu.color = (255, 255, 255)
+        menu.focus_color = (40, 200, 40)
+
+        nightmare = construct_nightmare(screen.get_size())
+        highscoresurf = self.construct_highscoresurf()
+
+        timepassed = clock.tick(30) / 1000.
+
+        while self.running:
+            events = pygame.event.get()
+
+            for event in events:
+                if event.type == pygame.QUIT:
+                    exit()
+
+
+
+
+
+
+
+
+
+
+
 
 
 
